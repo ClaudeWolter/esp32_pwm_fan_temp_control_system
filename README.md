@@ -6,8 +6,8 @@ This project is an open-source system designed to control multiple 12V PWM fans 
 ## Features
 - **Fan Control:** Adjusts fan speed based on temperature ranges.
 - **Temperature Monitoring:** Supports multiple DS18B20 sensors on a single pin.
-- **MQTT Integration:** Reports fan speed and temperature data over MQTT.
-- **Fail-Safe Operation:** Maintains functionality if Wi-Fi or MQTT connectivity is lost.
+- **MQTT Integration:** Reports fan speed and temperature data over MQTT, and accepts a manual fan speed or `auto`.
+- **Fail-Safe Operation:** Maintains functionality if Wi-Fi or MQTT connectivity is lost. Fans run at full speed if no sensor answers.
 - **Configurable Parameters:** User-configurable temperature thresholds, PWM frequency, and more.
 
 ## ESP32 only
@@ -26,7 +26,7 @@ This project is licensed under the **Creative Commons Attribution-NonCommercial-
 
 ## Software Requirements
 - **Arduino IDE**
-- ESP32 Board Manager (Version 3.0.7)
+- ESP32 Board Manager (version 3.x, compile-tested with 3.3.0; 2.x also supported)
 - Arduino Libraries:
   - `WiFi`
   - `PubSubClient`
@@ -40,26 +40,29 @@ This project is licensed under the **Creative Commons Attribution-NonCommercial-
 4. Configure the following user variables in the `USER CONFIGURATION SECTION`:
    - Wi-Fi credentials (`ssid` and `password`)
    - MQTT broker information (`mqtt_server`, `mqtt_port`, etc.)
-   - Number of sensors and fans (`NUM_SENSORS`, `NUM_FANS`)
    - Temperature thresholds (`MIN_TEMP`, `MAX_TEMP`)
-   - PWM frequency (`PWM_FREQUENCY`)
+   - PWM frequency (`PWM_FREQUENCY`) and polarity (`PWM_INVERTED`)
+   - Pins (`FAN_PWM`, `ONE_WIRE_BUS`)
 5. Connect the hardware as per the pin definitions in the code.
 6. Upload the code to your ESP32.
 
 ## How to Use
 - The system will automatically adjust fan speed based on temperature readings.
-- Monitor the fan speeds and temperatures via the MQTT broker.
+- Monitor the fan speeds and temperatures via the MQTT broker (topic `fan/status`, JSON such as `{"temperature":41.50,"pwm":117,"mode":"auto","sensors":3}`).
+- Publish a number `0`-`255` to `fan/control` to set the fan speed manually, or `auto` to return to temperature control. A manual speed is overridden with full speed when `MAX_TEMP` is reached or no sensor answers.
 - If the Wi-Fi connection fails, the system will continue to adjust fans based on sensor readings.
 
 ## Customization
-- **Additional Fans and Sensors:** Update `NUM_SENSORS` and `NUM_FANS` variables and configure the corresponding GPIO pins.
+- **Additional Fans and Sensors:** Sensors on the OneWire pin are detected automatically; the hottest one controls the fans. Wire the PWM inputs of all fans to the `FAN_PWM` pin.
 - **PWM Frequency:** Modify the `PWM_FREQUENCY` variable to match your fan requirements.
 - **Temperature Thresholds:** Adjust `MIN_TEMP` and `MAX_TEMP` to suit your cooling needs.
 
 ## Troubleshooting
-1. If you get temperature readings of -127°C, ensure the DS18B20 sensors are connected with an appropriate pull-up resistor. The build-in resistor might not be sufficient, add a 5kΩ resistor to pull up the the pin to 3V3.
-2. Verify the MQTT broker details.
-3. Check serial monitor output for debugging information.
+1. If no sensor is found (serial monitor shows `No sensor reading (fail-safe)`), ensure the DS18B20 sensors are connected with a pull-up resistor. The built-in resistor is not sufficient, add a 4.7kΩ resistor from the data pin to 3V3.
+2. Do not use GPIO12 for the fan PWM line. It is a boot strapping pin and the fan's internal pull-up on it prevents the ESP32 from booting. The default is GPIO25.
+3. 4-pin fans pull their PWM input up to 3.3V or 5V. The ESP32 is not 5V tolerant: if your fan pulls up to 5V, drive the line through an NPN transistor or N-MOSFET and set `PWM_INVERTED` to `true`.
+4. Verify the MQTT broker details.
+5. Check serial monitor output (115200 baud) for debugging information.
 
 ## Author
 Claude Wolter
